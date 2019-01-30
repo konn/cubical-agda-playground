@@ -1,0 +1,5 @@
+name: cubical-playground
+depend:
+  standard-library
+  cubical
+include: .

@@ -1,0 +1,46 @@
+{
+  "generic-input-methods.input-methods": [
+    {
+      "name": "Unicode Math",
+      "commandName": "text.math",
+      "languages": ["markdown", "agda"],
+      "triggers": ["\\"],
+      "dictionary": [
+        {
+          "label": "<",
+          "body": "⟨"
+        },
+        {
+          "label": ">",
+          "body": "⟩"
+        },
+        {
+          "label": "^r",
+          "body": "ʳ"
+        },
+        {
+          "label": "^l",
+          "body": "ˡ"
+        },
+        {
+          "label": "::",
+          "body": "∷"
+        },
+        {
+          "label": "to",
+          "body": "→",
+          "description": "→"
+        },
+        {
+          "label": "-->",
+          "body": "⟶",
+          "description": "⟶"
+        },
+        "defaults/math.json"
+      ]
+    }
+  ],
+  "editor.fontFamily": "Menlo,STIXGeneral, Monaco, 'Courier New', monospace",
+  "editor.wordWrapColumn": 120,
+  "editor.wordWrap": "bounded"
+}
