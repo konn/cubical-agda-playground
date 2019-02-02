@@ -14,8 +14,8 @@ open import Missing.EqReasoning
 
 data Deq {𝓁} (A : Set 𝓁) : Set 𝓁 where
   mkQ    : List A → List A → Deq A
-
   rotate : (a : A) (l r : List A) → mkQ (l L.∷ʳ a) r ≡ mkQ l (r L.∷ʳ a)
+
 pattern [] = mkQ L.[] L.[]
 
 module _ {𝓁} {A : Set 𝓁} where
@@ -124,12 +124,13 @@ module _ {𝓁} {A : Set 𝓁} where
       ≡⟨ cong (mkQ l) (L.reverse-involutive r) ⟩
         mkQ l r
       ∎
-      
 
     ++-identityʳ-i : ∀(a : A) (l r : List A) (j₀ : I) → rotate a l r j₀ ++ [] ≡ rotate a l r j₀
     ++-identityʳ-i a l r j₀ i =
       hfill
-        (λ j → λ { (i = i0) → rotate a l r j ++ [] ; (i = i1) → rotate a l r j })
+        (λ j → λ { (i = i0) → rotate a l r j ++ [] 
+                 ; (i = i1) → rotate a l r j
+                 })
         (inc (++-identityʳ-base (l L.∷ʳ a) r i))
         j₀
 
