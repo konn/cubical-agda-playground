@@ -7,6 +7,30 @@
       "triggers": ["\\"],
       "dictionary": [
         {
+          "label": "wedge",
+          "body": "∧"
+        },
+        {
+          "label": "vee",
+          "body": "∨"
+        },
+        {
+          "label": "land",
+          "body": "∧"
+        },
+        {
+          "label": "lor",
+          "body": "∨"
+        },
+        {
+          "label": "^",
+          "body": "∧"
+        },
+        {
+          "label": "v",
+          "body": "∨"
+        },
+        {
           "label": "==",
           "body": "≡"
         },
