@@ -7,6 +7,10 @@
       "triggers": ["\\"],
       "dictionary": [
         {
+          "label": "^-",
+          "body": "⁻"
+        },
+        {
           "label": "wedge",
           "body": "∧"
         },
