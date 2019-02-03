@@ -68,3 +68,13 @@ module _ {a} {A : Set a} where
         map f (x ∷ xs) ++ map f ys
       ∎
 
+module _ {a b} {A : Set a} {B : Set b} where
+  reverse-map-commute : (f : A → B) (xs : List A) →
+                        map f (reverse xs) ≡ reverse (map f xs)
+  reverse-map-commute f []       = refl
+  reverse-map-commute f (x ∷ xs) = 
+    map f (reverse (x ∷ xs))   ≡⟨ cong (map f) $ unfold-reverse x xs ⟩
+    map f (reverse xs ∷ʳ x)    ≡⟨ map-++-commute f (reverse xs) ([ x ]) ⟩
+    map f (reverse xs) ∷ʳ f x  ≡⟨ cong (_∷ʳ f x) $ reverse-map-commute f xs ⟩
+    reverse (map f xs) ∷ʳ f x  ≡⟨ sym $ unfold-reverse (f x) (map f xs) ⟩
+    reverse (map f (x ∷ xs))   ∎
