@@ -7,6 +7,26 @@
       "triggers": ["\\"],
       "dictionary": [
         {
+          "body": "⟦",
+          "label": "[|"
+        },
+        {
+          "body": "⟧",
+          "label": "|]"
+        },
+        {
+          "body": "⟦",
+          "label": "[["
+        },
+        {
+          "body": "⟧",
+          "label": "]]"
+        },
+        {
+          "label": "bbD",
+          "body": "𝔻"
+        },
+        {
           "label": "^-",
           "body": "⁻"
         },
@@ -74,5 +94,15 @@
   ],
   "editor.fontFamily": "Menlo,STIXGeneral, Monaco, 'Courier New', monospace",
   "editor.wordWrapColumn": 120,
-  "editor.wordWrap": "bounded"
+  "editor.wordWrap": "bounded",
+  "agda-interactive.program.libraries": ["standard-library", "cubical"],
+  "workbench.colorCustomizations": {},
+  "spellright.language": ["en-GB"],
+  "spellright.documentTypes": [
+    "markdown",
+    "latex"
+  ],
+  "agda-interactive.program.args": [
+    "--cubical"
+  ]
 }

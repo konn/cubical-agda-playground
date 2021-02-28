@@ -1,178 +1,208 @@
 {-# OPTIONS --cubical #-}
 module Deq where
-import Level renaming (suc to sucL)
+open import Cubical.Data.Prod
+open import Cubical.Data.List
+  renaming
+    ( _++_ to _++L_ ; [] to []L ; [_] to [_]L
+    ; rev to revL
+    ; ++-unit-r to ++L-unit-r
+    ; ++-assoc to ++L-assoc
+    )
+open import Cubical.Foundations.Prelude
 open import Cubical.Core.Everything
-open import Cubical.Core.Id using (pathId)
-import Cubical.Core.Id as Id
-open import Cubical.Core.HoTT-UF using (transport)
-open import Missing.List using (List)
-import Missing.List as L
-import Missing.List.Properties as L
-open import Missing.Function
-open import Missing.FunctionProperties
-open import Missing.EqReasoning
+open import Cubical.Foundations.Prelude
+open import Cubical.Foundations.HLevels
+open import Cubical.HITs.SetQuotients
+  renaming ( [_] to ⟦_⟧)
+open import Cubical.Structures.Monoid
 
-data Deq {𝓁} (A : Set 𝓁) : Set 𝓁 where
-  mkQ    : List A → List A → Deq A
-  rotate : (a : A) (l r : List A) → mkQ (l L.∷ʳ a) r ≡ mkQ l (r L.∷ʳ a)
+module _ where
+  private
+    variable
+      𝓁 : Level
+      A : Type 𝓁
+      R : A → A → Type 𝓁
 
-pattern [] = mkQ L.[] L.[]
+  recQ : {B : Type 𝓁}
+        (Bset : isSet B)
+        (f : A → B)
+        (feq : (a b : A) (r : R a b) → f a ≡ f b)
+      → A / R → B
+  recQ Bset f feq ⟦ a ⟧ = f a
+  recQ Bset f feq (eq/ a b r i) = feq a b r i
+  recQ Bset f feq (squash/ x y p q i j) = Bset (g x) (g y) (cong g p) (cong g q) i j
+    where
+    g = recQ Bset f feq
 
-module _ {𝓁} {A : Set 𝓁} where
-  infixr 5 _∷_
-  _∷_ : A → Deq A → Deq A
-  x ∷ mkQ l r = mkQ (x L.∷ l) r
-  x ∷ rotate a l r i = rotate a (x L.∷ l) r i
+  rec2 : {B : Type 𝓁} (Bset : isSet B)
+       (f : A → A → B) (feql : (a b c : A) (r : R a b) → f a c ≡ f b c)
+                       (feqr : (a b c : A) (r : R b c) → f a b ≡ f a c)
+    → A / R → A / R → B
+  rec2 Bset f feql feqr = recQ (isSetΠ (λ _ → Bset))
+                            (λ a → recQ Bset (f a) (feqr a))
+                            (λ a b r → funExt (elimProp (λ _ → Bset _ _)
+                                              (λ c → feql a b c r)))
 
-  infixl 5 _∷ʳ_
-  _∷ʳ_ : Deq A → A → Deq A
-  mkQ l r        ∷ʳ x = mkQ l (x L.∷ r)
-  rotate a l r i ∷ʳ x = rotate a l (x L.∷ r) i
+private
+  variable
+    𝓁 : Level
+    A : Set 𝓁
 
-  reverse : Deq A → Deq A
-  reverse (mkQ l r) = mkQ r l
-  reverse (rotate a l r i) = rotate a r l (~ i)
+data rotate-right (A : Type 𝓁) : (List A × List A) → (List A × List A) → Type 𝓁 where
+  rot-right : (a : A) → (lh rh : List A) → rotate-right A (lh ∷ʳ a , rh) (lh , rh ∷ʳ a)
 
-  map : ∀ {𝓁′} {B : Set 𝓁′} → (A → B) → Deq A → Deq B
-  map f (mkQ l r) = mkQ (L.map f l) (L.map f r)
-  map  {_} {B} f (rotate a l r i) = 
-    let pf =  mkQ (L.map f (l L.∷ʳ a)) (L.map f r)
-            ≡⟨ cong
-                (λ xs → mkQ xs $ L.map f r) $
-                L.map-++-commute f l L.[ a ]
-             ⟩ 
-              mkQ (L.map f l L.∷ʳ f a) (L.map f r)
-            ≡⟨ rotate (f a) (L.map f l) (L.map f r) ⟩
-              mkQ (L.map f l) (L.map f r  L.∷ʳ f a)
-            ≡⟨ cong
-                (λ ys → mkQ (L.map f l) ys) $
-                sym $ L.map-++-commute f r L.[ a ]
-              ⟩
-              mkQ (L.map f l) (L.map f (r L.∷ʳ a))
-            ∎
-    in pf i
+Queue : Type 𝓁 → Type 𝓁
+Queue A = (List A × List A) / rotate-right A
 
-  module _ where
-    aux-app-rev : ∀ (a : A) (l r : List A)
-                → l L.++ L.reverse (r L.∷ʳ a) ≡ (l L.∷ʳ a) L.++ L.reverse r
-    aux-app-rev a l r = 
-        l L.++ L.reverse (r L.∷ʳ a)
-      ≡⟨ cong (l L.++_) $ L.reverse-++-commute r _ ⟩
-        l L.++ (L.[ a ] L.++ L.reverse r)
-      ≡⟨ sym $ L.++-assoc l _ _ ⟩
-        (l L.∷ʳ a) L.++ L.reverse r
-      ∎
+mkQ : List A → List A → Queue A
+mkQ l r = ⟦ l , r ⟧
 
-    aux-que-app-rev : ∀ (l m r : List A) → mkQ (l L.++ m) r ≡ mkQ l (r L.++ L.reverse m)
-    aux-que-app-rev l L.[] r =
-        mkQ (l L.++ L.[]) r
-      ≡⟨ cong (λ x → mkQ x r) $ L.++-identityʳ l ⟩
-        mkQ l r
-      ≡⟨ cong (mkQ l) (sym $ L.++-identityʳ r) ⟩
-        mkQ l (r L.++ L.[])
-      ≡⟨⟩
-        mkQ l (r L.++ L.reverse L.[])
-      ∎
-    aux-que-app-rev l (x L.∷ xs) r =
-        mkQ (l L.++ (x L.∷ xs)) r
-      ≡⟨⟩
-        mkQ (l L.++ (L.[ x ] L.++ xs)) r
-      ≡⟨ cong (λ l → mkQ l r) $ sym $ 
-          L.++-assoc l L.[ x ] xs
-       ⟩
-        mkQ ((l L.∷ʳ x) L.++ xs) r
-      ≡⟨ aux-que-app-rev (l L.∷ʳ x) xs r ⟩
-        mkQ (l L.∷ʳ x) (r L.++ L.reverse xs)
-      ≡⟨ rotate x l (r L.++ L.reverse xs) ⟩
-        mkQ l ((r L.++ L.reverse xs) L.∷ʳ x)
-      ≡⟨ cong (mkQ l) $ 
-          L.++-assoc r (L.reverse xs) L.[ x ]
-       ⟩
-        mkQ l (r L.++ (L.reverse xs L.∷ʳ x))
-      ≡⟨ cong (λ zs → mkQ l (r L.++ zs)) $ sym $ 
-          L.unfold-reverse x xs
-       ⟩
-        mkQ l (r L.++ L.reverse (x L.∷ xs))
-      ∎
+[] : Queue A
+[] = mkQ []L []L
 
-  to-list : Deq A → List A
-  to-list (mkQ l r) = l L.++ L.reverse r
-  to-list (rotate a l r i) =
-      ( (l L.∷ʳ a) L.++ L.reverse r
-      ≡⟨ L.++-assoc l _ _ ⟩
-        l L.++ (L.[ a ] L.++ L.reverse r)
-      ≡⟨ sym $ cong (l L.++_) $ L.reverse-++-commute r _ ⟩
-        l L.++ L.reverse (r L.∷ʳ a)
-      ∎
-     ) i
+Queue-is-Set : isSet (Queue A)
+Queue-is-Set l r = squash/ l r
 
-  to-revlist : Deq A → List A
-  to-revlist (mkQ l r) = r L.++ L.reverse l
-  to-revlist (rotate a l r i) =
-     aux-app-rev a r l i
+_◁_ : A → Queue A → Queue A
+_◁_ x = recQ Queue-is-Set (λ { (lh , rh) → mkQ (x ∷ lh) rh }) 
+  λ{ .((lh ∷ʳ a) , rh) .(lh , (rh ∷ʳ a)) (rot-right a lh rh) →
+      mkQ (x ∷ (lh ∷ʳ a)) rh
+    ≡⟨ eq/ _ _ (rot-right a (x ∷ lh) rh)  ⟩
+      mkQ (x ∷ lh) (rh ∷ʳ a)
+    ∎
+    }
 
-  infixr 5 _++_
-  _++_ : Deq A → Deq A → Deq A
-  l ++ r = mkQ (to-list l) (to-revlist r)
-
-  module Properties where
-    ++-identityʳ-base : ∀(l r : List A) → mkQ l r ++ [] ≡ mkQ l r
-    ++-identityʳ-base l r =
-        (mkQ (l L.++ L.reverse r) L.[])
-      ≡⟨ aux-que-app-rev l (L.reverse r) L.[] ⟩
-        (mkQ l (L.reverse (L.reverse r)))
-      ≡⟨ cong (mkQ l) (L.reverse-involutive r) ⟩
-        mkQ l r
-      ∎
-
-    ++-identityʳ-i : ∀(a : A) (l r : List A) (j₀ : I) → rotate a l r j₀ ++ [] ≡ rotate a l r j₀
-    ++-identityʳ-i a l r j₀ i =
-      hfill
-        (λ j → λ { (i = i0) → rotate a l r j ++ [] 
-                 ; (i = i1) → rotate a l r j
-                 })
-        (inc (++-identityʳ-base (l L.∷ʳ a) r i))
-        j₀
-
-    ++-identityʳ : RightIdentity [] _++_
-    ++-identityʳ (mkQ l r) = ++-identityʳ-base l r
-    ++-identityʳ (rotate a l r j₀) i = {! ++-identityʳ-i a l r j₀ i !} -- ^ Why doesn't this work?
-
-      
-    {-
-    ++-identityˡ : LeftIdentity {A = Deq A} _≡_ [] _++_
-    ++-identityˡ (mkQ l r) =
-        [] ++ mkQ l r
-      ≡⟨⟩
-        mkQ L.[] (r L.++ L.reverse l)
-      ≡⟨ sym $ aux-que-app-rev L.[] l r ⟩
-        mkQ l r
-      ∎
-
-    ++-assoc : Associative {A = Deq A} _≡_ _++_
-    ++-assoc (mkQ l₁ r₁) (mkQ l₂ r₂) (mkQ l₃ r₃) = 
-        (mkQ l₁ r₁ ++ mkQ l₂ r₂) ++ mkQ l₃ r₃
-      ≡⟨⟩
-        mkQ (l₁ L.++ L.reverse r₁) (r₂ L.++ L.reverse l₂) ++ mkQ l₃ r₃
-      ≡⟨⟩
-        mkQ ((l₁ L.++ L.reverse r₁) L.++ L.reverse (r₂ L.++ L.reverse l₂)) (r₃ L.++ L.reverse l₃)
-      ≡⟨ cong (λ targ → mkQ ((l₁ L.++ L.reverse r₁) L.++ targ) (r₃ L.++ L.reverse l₃)) $
-            L.reverse (r₂ L.++ L.reverse l₂)
-          ≡⟨ L.reverse-++-commute r₂ _ ⟩
-            L.reverse (L.reverse l₂) L.++ L.reverse r₂
-          ≡⟨ cong (L._++ L.reverse r₂) $
-              L.reverse-involutive l₂
-           ⟩
-            l₂ L.++ L.reverse r₂
+_▷_ : Queue A → A → Queue A
+xs ▷ x = recQ Queue-is-Set (λ{ (lh , rh) → mkQ lh (x ∷ rh) }) 
+      (λ { .((lh ∷ʳ a) , rh) .(lh , (rh ∷ʳ a)) (rot-right a lh rh) → 
+            mkQ (lh ∷ʳ a) (x ∷ rh)
+          ≡⟨ eq/ _ _ (rot-right a lh (x ∷ rh)) ⟩
+            mkQ lh (x ∷ (rh ∷ʳ a))
           ∎
-       ⟩
-        mkQ ((l₁ L.++ L.reverse r₁) L.++ (l₂ L.++ L.reverse r₂)) (r₃ L.++ L.reverse l₃)
-      ≡⟨ aux-que-app-rev (l₁ L.++ L.reverse r₁) _ (r₃ L.++ L.reverse l₃) ⟩
-        mkQ (l₁ L.++ L.reverse r₁) ((r₃ L.++ L.reverse l₃) L.++ L.reverse (l₂ L.++ L.reverse r₂))
-      ≡⟨⟩
-        mkQ l₁ r₁ ++ mkQ (l₂ L.++ L.reverse r₂) (r₃ L.++ L.reverse l₃)
-      ≡⟨⟩
-        mkQ l₁ r₁ ++ (mkQ l₂ r₂ ++ mkQ l₃ r₃)
-      ∎ -}
-    
-     
+          }
+      )
+      xs
+
+_++_ : Queue A → Queue A → Queue A 
+_++_ = rec2 Queue-is-Set 
+    (λ { (lh , mh) (mh′ , rh) → mkQ (lh ++L revL mh) (rh ++L revL mh′) } )
+    (λ { (.(ls ∷ʳ a) , mls) (ls , .(mls ∷ʳ a)) (mrs′ , rs) (rot-right a .ls .mls) →
+          cong (λ l → mkQ l (rs ++L revL mrs′))
+          (   (ls ∷ʳ a) ++L revL mls
+            ≡⟨ refl ⟩
+              (ls ++L [ a ]L) ++L revL mls
+            ≡⟨ ++L-assoc ls ([ a ]L) (revL mls) ⟩
+              ls ++L ([ a ]L ++L revL mls)
+            ≡⟨ refl ⟩
+              ls ++L (a ∷ revL mls)
+            ≡⟨ cong (ls ++L_) (sym (rev-++ mls [ a ]L)) ⟩
+              ls ++L revL (mls ∷ʳ a)
+            ∎
+          )
+      }
+    )
+    (λ { (ls , mls) (.(mrs ∷ʳ a) , rs) (mrs , .(rs ∷ʳ a)) (rot-right a .mrs .rs) →
+          cong (mkQ (ls ++L revL mls))
+          (   rs ++L revL (mrs ∷ʳ a) 
+            ≡⟨ cong (rs ++L_) (rev-++ mrs [ a ]L) ⟩
+              rs ++L (a ∷ revL mrs) 
+            ≡⟨ sym (++L-assoc rs (a ∷ []L) (revL mrs)) ⟩ 
+              (rs ∷ʳ a) ++L revL mrs
+            ∎
+          )
+      }
+    )
+
+infixr 5 _++_ _◁_
+infixl 5 _▷_
+
+++-rot-rev-r : ∀ {xs ys zs : List A} → mkQ zs (ys ++L revL xs) ≡ mkQ (zs ++L xs) ys
+++-rot-rev-r {xs = []L} {ys} {zs} = cong₂ mkQ (sym (++L-unit-r zs)) (++L-unit-r ys)
+++-rot-rev-r {xs = x ∷ xs} {ys} {zs} =
+    mkQ zs (ys ++L revL (x ∷ xs))
+  ≡⟨ cong (λ ws → mkQ zs (ys ++L ws)) (rev-++ (x ∷ []L) xs) ⟩
+    mkQ zs (ys ++L (revL xs ++L [ x ]L))
+  ≡⟨ cong (mkQ zs) (sym (++L-assoc ys (revL xs) [ x ]L)) ⟩
+    mkQ zs ((ys ++L revL xs) ∷ʳ x )
+  ≡⟨ sym (eq/ _ _ (rot-right x zs (ys ++L revL xs))) ⟩
+    mkQ (zs ∷ʳ x) (ys ++L revL xs)
+  ≡⟨ ++-rot-rev-r ⟩
+    mkQ ((zs ∷ʳ x) ++L xs) ys
+  ≡⟨ cong (λ ws → mkQ ws ys) (++L-assoc zs (x ∷ []L) xs) ⟩
+    mkQ (zs ++L x ∷ xs) ys
+  ∎
+
+++-rot-rev-l : ∀ {xs ys zs : List A} → mkQ (xs ++L revL ys) zs ≡ mkQ xs (zs ++L ys)
+++-rot-rev-l {xs = xs} {[]L} {zs} = cong₂ mkQ (++L-unit-r xs) (sym (++L-unit-r zs))
+++-rot-rev-l {xs = xs} {x ∷ ys} {zs} = 
+    mkQ (xs ++L revL (x ∷ ys)) zs
+  ≡⟨ cong (λ ws → mkQ (xs ++L ws) zs) (rev-++ (x ∷ []L) ys) ⟩
+    mkQ (xs ++L (revL ys ∷ʳ x)) zs
+  ≡⟨ cong (λ ws → mkQ ws zs) (sym (++L-assoc xs (revL ys) (x ∷ []L))) ⟩
+    mkQ ((xs ++L revL ys) ∷ʳ x) zs
+  ≡⟨ eq/ _ _ (rot-right x (xs ++L revL ys) zs) ⟩
+    mkQ (xs ++L revL ys) (zs ∷ʳ x)
+  ≡⟨ ++-rot-rev-l ⟩
+    mkQ xs ((zs ∷ʳ x) ++L ys)
+  ≡⟨ cong (mkQ xs) (++L-assoc zs (x ∷ []L) ys) ⟩
+    mkQ xs (zs ++L x ∷ ys)
+  ∎
+
+++-unit-l : ∀ (x : Queue A) → [] ++ x ≡ x
+++-unit-l = elimProp (λ x →  Queue-is-Set ([] ++ x) x) λ { 
+    (lh , rh) → 
+        [] ++ mkQ lh rh
+      ≡⟨ refl ⟩
+        mkQ []L (rh ++L revL lh)
+      ≡⟨ ++-rot-rev-r ⟩ 
+        mkQ lh rh
+      ∎
+  }
+
+++-unit-r : ∀ (x : Queue A) → x ++ [] ≡ x
+++-unit-r = elimProp (λ x →  Queue-is-Set (x ++ []) x) λ { 
+    (lh , rh) → 
+        mkQ lh rh ++ []
+      ≡⟨ refl ⟩
+        mkQ (lh ++L revL rh) []L
+      ≡⟨ ++-rot-rev-l ⟩ 
+        mkQ lh rh
+      ∎
+  }
+
+++-assoc-aux : (ls₁ rs₁ ls₂ rs₂ ls₃ rs₃ : List A) → 
+  mkQ ls₁ rs₁ ++ mkQ ls₂ rs₂ ++ mkQ ls₃ rs₃ ≡
+    (mkQ ls₁ rs₁ ++ mkQ ls₂ rs₂) ++ mkQ ls₃ rs₃
+++-assoc-aux ls₁ rs₁ ls₂ rs₂ ls₃ rs₃ =
+    mkQ ls₁ rs₁ ++ (mkQ ls₂ rs₂ ++ mkQ ls₃ rs₃)
+  ≡⟨ refl ⟩
+    mkQ ls₁ rs₁ ++ (mkQ (ls₂ ++L revL rs₂) (rs₃ ++L revL ls₃))
+  ≡⟨ refl ⟩
+    mkQ (ls₁ ++L revL rs₁) ((rs₃ ++L revL ls₃) ++L revL (ls₂ ++L revL rs₂) )
+  ≡⟨ ++-rot-rev-r ⟩
+    mkQ ((ls₁ ++L revL rs₁) ++L (ls₂ ++L revL rs₂)) (rs₃ ++L revL ls₃)
+  ≡⟨ cong (λ ws → mkQ ((ls₁ ++L revL rs₁) ++L ws) _) 
+    (   ls₂ ++L revL rs₂
+      ≡⟨ cong (_++L revL rs₂) (sym (rev-rev ls₂)) ⟩
+        revL (revL ls₂) ++L revL rs₂
+      ≡⟨ sym (rev-++ rs₂ (revL ls₂)) ⟩
+        revL (rs₂ ++L revL ls₂) ∎
+    )
+  ⟩
+    mkQ ((ls₁ ++L revL rs₁) ++L revL (rs₂ ++L revL ls₂)) (rs₃ ++L revL ls₃)
+  ≡⟨ refl ⟩
+    (mkQ (ls₁ ++L revL rs₁) (rs₂ ++L revL ls₂)) ++ mkQ ls₃ rs₃
+  ≡⟨ refl ⟩
+    (mkQ ls₁ rs₁ ++ mkQ ls₂ rs₂) ++ mkQ ls₃ rs₃
+  ∎
+
+++-assoc : (xs ys zs : Queue A) → xs ++ (ys ++ zs) ≡ (xs ++ ys) ++ zs
+++-assoc = elimProp (λ _ → isPropΠ (λ _ → isPropΠ (λ _ → Queue-is-Set _ _))) 
+  λ { (ls₁ , rs₁) →  
+    elimProp (λ _ → isPropΠ λ _ → Queue-is-Set _ _) 
+      λ {(ls₂ , rs₂) → elimProp (λ _ → Queue-is-Set _ _) 
+          (λ { (ls₃ , rs₃) → ++-assoc-aux ls₁ rs₁ ls₂ rs₂ ls₃ rs₃ }) }
+  }
+
+Queue-monoid-str : monoid-structure (Queue A)
+Queue-monoid-str = ([] , _++_) , (Queue-is-Set , (++-assoc , (++-unit-r , ++-unit-l)))
